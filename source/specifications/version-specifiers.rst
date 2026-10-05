@@ -172,9 +172,6 @@ identified by the public version identifier, but contains additional changes
 indexing and hosting upstream projects, it MUST NOT allow the use of local
 version identifiers.
 
-Source distributions using a local version identifier SHOULD provide the
-``python.integrator`` extension metadata (as defined in :pep:`459`).
-
 
 Final releases
 --------------
@@ -226,7 +223,7 @@ part of the ``3.3`` release series.
    form to ``X.Y.0`` when comparing it to any release segment that includes
    three components.
 
-Date based release segments are also permitted. An example of a date based
+Date-based release segments are also permitted. An example of a date-based
 release scheme using the year and month of the release::
 
     2012.4
@@ -343,6 +340,9 @@ post-releases::
     X.YrcN.devM      # Developmental release of a release candidate
     X.Y.postN.devM   # Developmental release of a post-release
 
+Do note that development releases are considered a type of pre-release when
+handling them.
+
 .. note::
 
    While they may be useful for continuous integration purposes, publishing
@@ -390,6 +390,21 @@ from an earlier epoch::
     1!1.0
     1!1.1
     1!2.0
+
+.. note::
+
+   Use of nonzero epochs is discouraged. They are often not supported or
+   discouraged by downstream packaging where Python packages may need to be
+   consumed, and due to their scarce use they may also not be well supported by
+   Python packaging tools.
+
+   When version scheme needs to be changed, it is preferable to continue with
+   monotonically increasing numbers in epoch zero. For example, the version
+   2026.x could be unambiguously followed by 3000.x.
+
+   See `Discouraging use of epoch segments in versions
+   <https://discuss.python.org/t/discouraging-use-of-epoch-segments-in-versions/105811>`__
+   for the relevant discussion.
 
 
 .. _version-specifiers-normalization:
@@ -587,8 +602,8 @@ and post-releases for minor corrections::
     1.0.dev2
     1.0.dev3
     1.0.dev4
-    1.0c1
-    1.0c2
+    1.0rc1
+    1.0rc2
     1.0
     1.0.post1
     1.1.dev1
@@ -1013,8 +1028,9 @@ Arbitrary equality
 
 Arbitrary equality comparisons are simple string equality operations which do
 not take into account any of the semantic information such as zero padding or
-local versions. This operator also does not support prefix matching as the
-``==`` operator does.
+local versions. The comparison MUST treat ASCII letters case-insensitively, e.g.
+by lowercasing, and is unspecified for non-ASCII text. This operator also does
+not support prefix matching as the ``==`` operator does.
 
 The primary use case for arbitrary equality is to allow for specifying a
 version which cannot otherwise be represented by this specification. This operator is
@@ -1266,3 +1282,7 @@ History
 =======
 
 - August 2014: This specification was approved through :pep:`440`.
+- May 2025: Clarify that development releases are a form of pre-release when
+  they are handled.
+- Nov 2025: Make arbitrary equality case insensitivity explicit.
+- Jan 2026: The use of epochs was discouraged.

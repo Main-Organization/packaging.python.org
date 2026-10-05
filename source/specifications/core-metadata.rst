@@ -6,6 +6,8 @@
 Core metadata specifications
 ============================
 
+This page describes version 2.6, approved in May 2026.
+
 Fields defined in the following specification should be considered valid,
 complete and not subject to change. The required fields are:
 
@@ -48,11 +50,11 @@ Metadata-Version
 .. versionadded:: 1.0
 
 Version of the file format; legal values are "1.0", "1.1", "1.2", "2.1",
-"2.2", "2.3", and "2.4".
+"2.2", "2.3", "2.4", "2.5", and "2.6".
 
-Automated tools consuming metadata SHOULD warn if ``metadata_version`` is
+Automated tools consuming metadata SHOULD warn if ``metadata-version`` is
 greater than the highest version they support, and MUST fail if
-``metadata_version`` has a greater major version than the highest
+``metadata-version`` has a greater major version than the highest
 version they support (as described in the
 :ref:`Version specifier specification <version-specifiers>`,
 the major version is the value before the first dot).
@@ -107,6 +109,10 @@ Dynamic (multiple use)
 ======================
 
 .. versionadded:: 2.2
+.. versionchanged:: 2.6
+   A multiple use field that is present in the sdist and also marked
+   ``Dynamic`` may only be appended to in a wheel built from the sdist.
+   Previously any field listed in Dynamic was ignored in an sdist.
 
 A string containing the name of another core metadata field. The field
 names ``Name``, ``Version``, and ``Metadata-Version`` may not be specified
@@ -119,8 +125,12 @@ rules apply:
    in any wheel built from the sdist MUST match the value in the sdist.
    If the field is not in the sdist, and not marked as ``Dynamic``, then
    it MUST NOT be present in the wheel.
-2. If a field is marked as ``Dynamic``, it may contain any valid value in
-   a wheel built from the sdist (including not being present at all).
+2. If a single-use field is marked as ``Dynamic``, it may contain any valid
+   value in a wheel built from the sdist (including not being present at all).
+3. If a multiple use field is present in the sdist and also marked ``Dynamic``,
+   then a wheel built from the sdist MUST include the value(s) present in the
+   sdist. The wheel MAY add further values, but it MUST NOT remove, reorder, or
+   modify the values present in the sdist.
 
 If the sdist metadata version is older than version 2.2, then all fields should
 be treated as if they were specified with ``Dynamic`` (i.e. there are no special
@@ -130,6 +140,16 @@ In any context other than a source distribution, ``Dynamic`` is for information
 only, and indicates that the field value was calculated at wheel build time,
 and may not be the same as the value in the sdist or in other wheels for the
 project.
+
+Note in particular that if you have obtained a prebuilt wheel, you cannot
+assume that a field which is not marked as ``Dynamic`` will have the same value
+in other wheels, as some wheels are not built directly from the sdist, but are
+modified from existing wheels (the ``auditwheel`` tool does this, for example,
+and it's commonly used when building wheels for PyPI). Such modifications
+*could* include changing metadata (even non-dynamic metadata).  Similarly, if
+you have a sdist and a wheel which you didn't build from that sdist, you cannot
+assume that the wheel's metadata matches that of the sdist, even if the field
+is not marked as ``Dynamic``.
 
 Full details of the semantics of ``Dynamic`` are described in :pep:`643`.
 
@@ -468,8 +488,14 @@ License-Expression
 .. versionadded:: 2.4
 
 Text string that is a valid SPDX
-`license expression <https://peps.python.org/pep-0639/#term-license-expression>`__
-as `defined in PEP 639 <https://peps.python.org/pep-0639/#spdx>`__.
+:term:`license expression <License Expression>`,
+as specified in :doc:`/specifications/license-expression`.
+
+Note that the expression in this field only applies to the
+:term:`Distribution Archive` containing the metadata with this field (e.g.,
+:term:`Source Distribution <Source Distribution (or "sdist")>` or :term:`Wheel`),
+not the project overall or other files related to the project (including other
+distribution archives).
 
 Examples::
 
@@ -556,13 +582,13 @@ The format of a requirement string contains from one to four parts:
 * An environment marker after a semicolon. This means that the
   requirement is only needed in the specified conditions.
 
-See :pep:`508` for full details of the allowed format.
-
 The project names should correspond to names as found
 on the `Python Package Index`_.
 
 Version specifiers must follow the rules described in
 :doc:`version-specifiers`.
+
+See :ref:`dependency-specifiers` for full details of the allowed format.
 
 Examples::
 
@@ -704,6 +730,101 @@ for this field would be invalid under newer metadata versions. If a value would
 be invalid following the rules for ``Name:`` in any core metadata version, the
 user SHOULD be warned and the value ignored to avoid ambiguity. Tools MAY choose
 to raise an error when reading an invalid name for older metadata versions.
+
+
+.. _core-metadata-import-name:
+
+Import-Name (multiple use)
+==========================
+
+.. versionadded:: 2.5
+
+A string containing an import name that the project exclusively provides when
+installed. The specified import name MUST be a valid Python identifier or can
+be empty. The import names listed in this field MUST be importable when the
+project is installed on *some* platform for the same version of the project.
+This implies that the metadata MUST be consistent across all sdists and wheels
+for a project release.
+
+An import name MAY be followed by a semicolon and the term "private"
+(e.g. ``; private``) with any amount of whitespace surrounding the semicolon.
+This signals to tools that the import name is not part of the public API for
+the project.
+
+Projects SHOULD list all the shortest import names that are exclusively provided
+by the project. If any of the shortest names are dotted names, all intervening
+names from that name to the top-level name SHOULD also be listed appropriately
+in ``Import-Name`` and/or ``Import-Namespace``.
+
+If a project lists the same name in both ``Import-Name`` and
+``Import-Namespace``, tools MUST raise an error due to ambiguity.
+
+Tools SHOULD raise an error when two projects that are about to be installed
+list names that overlap in each other's ``Import-Name`` entries, or when a
+project has an entry in ``Import-Name`` that overlaps with another project's
+``Import-Namespace`` entries. This is to avoid projects unexpectedly shadowing
+another project's code. Tools MAY warn or raise an error when installing a
+project into a preexisting environment where there is import name overlap with
+a project that is already installed.
+
+Projects MAY have an empty ``Import-Name`` field in their metadata to represent
+a project with no import names (i.e. there are no Python modules of any kind in
+the distribution file).
+
+Since projects MAY have no ``Import-Name`` metadata (either because the
+project uses an older metadata version, or because it didn't specify any), then
+tools have no information about what names the project provides. However, in
+practice the majority of projects have their project name match what their
+import name would be. As such, it is a reasonable assumption to make that a
+project name that is normalized in some way to an import name
+(e.g. ``packaging.utils.canonicalize_name(name, validate=True).replace("-", "_")``)
+can be used if some answer is needed.
+
+Examples::
+
+    Import-Name: PIL
+    Import-Name: _private_module ; private
+    Import-Name: zope.interface
+    Import-Name:
+
+
+.. _core-metadata-import-namespace:
+
+Import-Namespace (multiple use)
+===============================
+
+.. versionadded:: 2.5
+
+A string containing an import name that the project provides when installed, but
+not exclusively. The specified import name MUST be a valid Python identifier.
+This field is used for namespace packages where multiple projects can contribute
+to the same import namespace. Projects all listing the same import name in
+``Import-Namespace`` can be installed together without shadowing each other.
+
+An import name MAY be followed by a semicolon and the term "private" (e.g.
+``; private``) with any amount of whitespace surrounding the semicolon. This
+signals to tools that the import name is not part of the public API for the
+project.
+
+Projects SHOULD list all the shortest import names that are exclusively provided
+by the project. If any of the shortest names are dotted names, all intervening
+names from that name to the top-level name SHOULD also be listed appropriately
+in ``Import-Name`` and/or ``Import-Namespace``.
+
+The import names listed in this field MUST be importable when the project is
+installed on *some* platform for the same version of the project. This implies
+that the metadata MUST be consistent across all sdists and wheels for a project
+release.
+
+If a project lists the same name in both ``Import-Name`` and
+``Import-Namespace``, tools MUST raise an error due to ambiguity.
+
+Note that ``Import-Namespace`` CANNOT be empty like ``Import-Name``.
+
+Examples::
+
+    Import-Namespace: zope
+    Import-Name: _private_module ; private
 
 
 Rarely Used Fields
@@ -922,8 +1043,11 @@ History
 =======
 
 - March 2001: Core metadata 1.0 was approved through :pep:`241`.
-- April 2003: Core metadata 1.1 was approved through :pep:`314`:
+
+- April 2003: Core metadata 1.1 was approved through :pep:`314`.
+
 - February 2010: Core metadata 1.2 was approved through :pep:`345`.
+
 - February 2018: Core metadata 2.1 was approved through :pep:`566`.
 
   - Added ``Description-Content-Type`` and ``Provides-Extra``.
@@ -942,6 +1066,27 @@ History
 
   - Added the ``License-Expression`` field.
   - Added the ``License-File`` field.
+
+- August 2025: Clarified that ``Dynamic`` only affects how fields
+  must be treated when building a wheel from a sdist, not when modifying
+  a wheel.
+
+- September 2025: Core metadata 2.5 was approved through :pep:`794`.
+
+  - Added the ``Import-Name`` field.
+  - Added the ``Import-Namespace`` field.
+
+- October 2025: Clarified that ``License-Expression`` applies to the containing
+  distribution file and not the project itself.
+
+- January 2026: Replaced outdated direct reference to :pep:`508` with a
+  reference to :ref:`dependency-specifiers`.
+
+- May 2026: Core metadata 2.6 was approved through :pep:`808`.
+
+  - Allowed a multiple use field marked ``Dynamic`` to be appended to in a
+    wheel built from a sdist, requiring the wheel to preserve the value(s)
+    present in the sdist.
 
 ----
 

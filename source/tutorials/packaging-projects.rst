@@ -136,38 +136,7 @@ The :file:`pyproject.toml` tells :term:`build frontend <Build Frontend>` tools l
 examples for common build backends, but check your backend's own documentation
 for more details.
 
-.. tab:: Hatchling
-
-    .. code-block:: toml
-
-        [build-system]
-        requires = ["hatchling"]
-        build-backend = "hatchling.build"
-
-.. tab:: setuptools
-
-    .. code-block:: toml
-
-        [build-system]
-        requires = ["setuptools>=61.0"]
-        build-backend = "setuptools.build_meta"
-
-.. tab:: Flit
-
-    .. code-block:: toml
-
-        [build-system]
-        requires = ["flit_core>=3.4"]
-        build-backend = "flit_core.buildapi"
-
-.. tab:: PDM
-
-    .. code-block:: toml
-
-        [build-system]
-        requires = ["pdm-backend"]
-        build-backend = "pdm.backend"
-
+.. include:: ../shared/build-backend-tabs.rst
 
 The ``requires`` key is a list of packages that are needed to build your package.
 The :term:`frontend <Build Frontend>` should install them automatically when building your package.
@@ -175,6 +144,8 @@ Frontends usually run builds in isolated environments, so omitting dependencies
 here may cause build-time errors.
 This should always include your backend's package, and might have other build-time
 dependencies.
+The minimum version specified in the above code block is the one that introduced support
+for :ref:`the new license metadata <license-and-license-files>`.
 
 The ``build-backend`` key is the name of the Python object that frontends will use
 to perform the build.
@@ -210,7 +181,7 @@ following this tutorial.
     ]
     description = "A small example package"
     readme = "README.md"
-    requires-python = ">=3.8"
+    requires-python = ">=3.9"
     classifiers = [
         "Programming Language :: Python :: 3",
         "Operating System :: OS Independent",
@@ -249,7 +220,7 @@ following this tutorial.
   your package will work on. For a complete list of classifiers, see
   https://pypi.org/classifiers/.
 - ``license`` is the :term:`SPDX license expression <License Expression>` of
-  your package.
+  your :term:`Distribution Archive` files.
 - ``license-files`` is the list of glob paths to the license files,
   relative to the directory where :file:`pyproject.toml` is located.
 - ``urls`` lets you list any number of extra links to show on PyPI.
@@ -279,12 +250,12 @@ if you'd like.
 Creating a LICENSE
 ------------------
 
-It's important for every package uploaded to the Python Package Index to include
-a license. This tells users who install your package the terms under which they
-can use your package. For help picking a license, see
-https://choosealicense.com/. Once you have chosen a license, open
-:file:`LICENSE` and enter the license text. For example, if you had chosen the
-MIT license:
+It's important for every :term:`Distribution Archive` uploaded to the Python
+Package Index to include a license. This tells users who install your
+:term:`Distribution Archive` the terms under which they can use it. For help
+picking a license, see https://choosealicense.com/. Once you have chosen a
+license, open :file:`LICENSE` and enter the license text. For example, if you
+had chosen the MIT license:
 
 .. code-block:: text
 

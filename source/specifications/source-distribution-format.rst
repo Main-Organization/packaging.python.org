@@ -5,7 +5,7 @@
 Source distribution format
 ==========================
 
-The current standard format of source distribution format is identified by the
+The current standard source distribution format is identified by the
 presence of a :file:`pyproject.toml` file in the distribution archive.  The layout
 of such a distribution was originally specified in :pep:`517` and is formally
 documented here.
@@ -27,7 +27,7 @@ Source trees
 
 A *source tree* is a collection of files and directories -- like a version
 control system checkout -- which contains a :file:`pyproject.toml` file that
-can be use to build a source distribution from the contained files and
+can be used to build a source distribution from the contained files and
 directories. :pep:`517` and :pep:`518` specify what is required to meet the
 definition of what :file:`pyproject.toml` must contain for something to be
 deemed a source tree.
@@ -74,7 +74,7 @@ at their respective paths relative to the root directory of the sdist
 No other content of a sdist is required or defined. Build systems can store
 whatever information they need in the sdist to build the project.
 
-The tarball should use the modern POSIX.1-2001 pax tar format, which specifies
+The tarball must use the modern POSIX.1-2001 pax tar format, which specifies
 UTF-8 based file names. In particular, source distribution files must be readable
 using the standard library tarfile module with the open flag 'r:gz'.
 

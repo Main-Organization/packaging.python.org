@@ -14,7 +14,7 @@ Glossary
 
     Build Backend
 
-        A library that takes a source tree
+        A library that takes a :term:`source tree <Project Source Tree>`
         and builds a :term:`source distribution <Source Distribution (or "sdist")>` or
         :term:`built distribution <Built Distribution>` from it.
         The build is delegated to the backend by a
@@ -135,7 +135,7 @@ Glossary
 
         A :term:`Project` that is installed for use with
         a Python interpreter or :term:`Virtual Environment`,
-        as described in the specicifcation :ref:`recording-installed-packages`.
+        as described in the specification :ref:`recording-installed-packages`.
 
 
     Known Good Set (KGS)
@@ -160,7 +160,7 @@ Glossary
 
         A string with valid SPDX license expression syntax,
         including one or more SPDX :term:`License Identifier`\(s),
-        which describes a :term:`Project`'s license(s)
+        which describes a :term:`Distribution Archive`'s license(s)
         and how they inter-relate.
         Examples:
         ``GPL-3.0-or-later``,
@@ -287,8 +287,7 @@ Glossary
         PyPA is a working group that maintains many of the relevant
         projects in Python packaging. They maintain a site at
         :doc:`pypa.io <pypa:index>`, host projects on `GitHub
-        <https://github.com/pypa>`_ and `Bitbucket
-        <https://bitbucket.org/pypa>`_, and discuss issues on the
+        <https://github.com/pypa>`_, and discuss issues on the
         `distutils-sig mailing list
         <https://mail.python.org/mailman3/lists/distutils-sig.python.org/>`_
 	and `the Python Discourse forum <https://discuss.python.org/c/packaging>`__.

@@ -2,6 +2,11 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 import os
+import pathlib
+import sys
+
+_ROOT = pathlib.Path(__file__).resolve().parent.parent
+sys.path.append(os.fspath(_ROOT))
 
 # Some options are only enabled for the main packaging.python.org deployment builds
 RTD_BUILD = bool(os.getenv("READTHEDOCS"))
@@ -22,12 +27,14 @@ author = "Python Packaging Authority"
 root_doc = "index"
 
 extensions = [
+    "pug_sphinx_extensions",
     "sphinx.ext.extlinks",
     "sphinx.ext.intersphinx",
     "sphinx.ext.todo",
     "sphinx_inline_tabs",
     "sphinx_copybutton",
     "sphinx_toolbox.collapse",
+    "sphinx-jsonschema",
 ]
 
 nitpicky = True
@@ -72,15 +79,19 @@ html_last_updated_fmt = ""
 
 _metrics_js_files = [
     (
-        "https://plausible.io/js/script.js",
+        "https://analytics.python.org/js/script.outbound-links.js",
         {"data-domain": "packaging.python.org", "defer": "defer"},
-    )
+    ),
 ]
 html_js_files = []
 if RTD_CANONICAL_BUILD:
     # Enable collection of the visitor metrics reported at
     # https://plausible.io/packaging.python.org
     html_js_files.extend(_metrics_js_files)
+
+html_extra_path = [
+    "../extra",
+]
 
 # -- Options for HTML help output ------------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-help-output
@@ -127,28 +138,51 @@ texinfo_documents = [
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-the-linkcheck-builder
 
 linkcheck_ignore = [
-    "http://localhost:\\d+",
-    "https://test.pypi.org/project/example-package-YOUR-USERNAME-HERE",
-    "https://pypi.org/manage/*",
-    "https://test.pypi.org/manage/*",
+    r"http://localhost:\d+",
+    r"https://test\.pypi\.org/project/example-package-YOUR-USERNAME-HERE",
+    r"https://pypi\.org/manage/.*",
+    r"https://test\.pypi\.org/manage/.*",
     # Temporarily ignored. Ref:
     # https://github.com/pypa/packaging.python.org/pull/1308#issuecomment-1775347690
-    "https://www.breezy-vcs.org/*",
+    r"https://www\.breezy-vcs\.org/.*",
     # Ignore while StackOverflow is blocking GitHub CI. Ref:
     # https://github.com/pypa/packaging.python.org/pull/1474
-    "https://stackoverflow.com/*",
-    "https://pyscaffold.org/*",
-    "https://anaconda.org",
+    r"https://stackoverflow\.com/.*",
+    # Cloudflare challenge blocks automated link checking.
+    r"https://clickpy\.clickhouse\.com/$",
+    r"https://pyscaffold\.org/.*",
+    r"https://anaconda\.org",
+    r"https://www\.cisa\.gov/sbom",
+    r"https://developers\.redhat\.com/products/softwarecollections/overview",
+    r"https://math-atlas\.sourceforge\.net/?",
+    r"https://click\.palletsprojects\.com/.*",
+    r"https://typer\.tiangolo\.com/.*",
+    r"https://www.npmjs.com/.*",
+    r"https://docutils\.sourceforge\.io/.*",
+    # Temporarily ignored due to expired TLS cert.
+    # Ref: https://github.com/pypa/packaging.python.org/issues/1998
+    r"https://blog\.ganssle\.io/.*",
+    # Temporarily ignored due to expired TLS cert.
+    r"https://kivy.org/.*",
 ]
-linkcheck_retries = 5
+linkcheck_retries = 2
+linkcheck_timeout = 30
 # Ignore anchors for common targets when we know they likely won't be found
 linkcheck_anchors_ignore_for_url = [
     # GitHub synthesises anchors in JavaScript, so Sphinx can't find them in the HTML
     r"https://github\.com/",
+    r"https://docs\.github\.com/",
     # While PyPI has its botscraping defenses active, Sphinx can't resolve the anchors
     # https://github.com/pypa/packaging.python.org/issues/1744
     r"https://pypi\.org/",
 ]
+# Authenticate requests to github.com (when a token is available) to avoid
+# unauthenticated rate limits that can stall linkcheck for hours on CI.
+if _gh_token := os.getenv("GITHUB_TOKEN"):
+    linkcheck_request_headers = {
+        "https://github.com/": {"Authorization": f"Bearer {_gh_token}"},
+        "https://api.github.com/": {"Authorization": f"Bearer {_gh_token}"},
+    }
 
 # -- Options for extlinks ----------------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/extensions/extlinks.html#configuration
@@ -196,12 +230,12 @@ intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
     "python-guide": ("https://docs.python-guide.org", None),
     "setuptools": ("https://setuptools.pypa.io/en/latest/", None),
+    "setuptools-scm": ("https://setuptools-scm.rtfd.io/latest", None),
     "spack": ("https://spack.readthedocs.io/en/latest/", None),
     "sphinx": ("https://www.sphinx-doc.org/en/master", None),
     "tox": ("https://tox.wiki/en/latest/", None),
     "twine": ("https://twine.readthedocs.io/en/stable/", None),
     "virtualenv": ("https://virtualenv.pypa.io/en/stable/", None),
-    "warehouse": ("https://warehouse.pypa.io/", None),
 }
 
 # -- Options for todo extension --------------------------------------------------------

@@ -23,7 +23,7 @@ Supporting multiple hardware platforms
   For Python-only distributions, it *should* be straightforward to deploy on all
   platforms where Python can run.
 
-  For distributions with binary extensions, deployment is major headache.  Not only
+  For distributions with binary extensions, deployment is a major headache.  Not only
   must the extensions be built on all the combinations of operating system and
   hardware platform, but they must also be tested, preferably on continuous
   integration platforms.  The issues are similar to the "multiple Python
@@ -97,7 +97,7 @@ services, and DLL/EXE COM servers might work but it is not actively supported.
 The distutils extension is released under the MIT-licence and Mozilla
 Public License 2.0.
 
-.. __: https://devguide.python.org/#status-of-python-branches
+.. __: https://devguide.python.org/versions/
 
 macOS
 -----

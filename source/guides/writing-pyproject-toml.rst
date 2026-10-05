@@ -56,38 +56,7 @@ Usually, you'll just copy what your build backend's documentation
 suggests (after :ref:`choosing your build backend <choosing-build-backend>`).
 Here are the values for some common build backends:
 
-.. tab:: Hatchling
-
-    .. code-block:: toml
-
-        [build-system]
-        requires = ["hatchling"]
-        build-backend = "hatchling.build"
-
-.. tab:: setuptools
-
-    .. code-block:: toml
-
-        [build-system]
-        requires = ["setuptools >= 61.0"]
-        build-backend = "setuptools.build_meta"
-
-.. tab:: Flit
-
-    .. code-block:: toml
-
-        [build-system]
-        requires = ["flit_core >= 3.4"]
-        build-backend = "flit_core.buildapi"
-
-.. tab:: PDM
-
-    .. code-block:: toml
-
-        [build-system]
-        requires = ["pdm-backend"]
-        build-backend = "pdm.backend"
-
+.. include:: ../shared/build-backend-tabs.rst
 
 
 Static vs. dynamic metadata
@@ -206,6 +175,33 @@ Each of the keys defines a "packaging extra". In the example above, one
 could use, e.g., ``pip install your-project-name[gui]`` to install your
 project with GUI support, adding the PyQt5 dependency.
 
+.. _self-referential-extras:
+
+You can also define an extra that refers back to the current project with
+other extras. This is useful for convenience extras that combine several
+optional features (such as an ``all`` extra hosting dependencies from both
+``gui`` and ``cli``):
+
+.. code-block:: toml
+
+    all = ["your-project-name[gui, cli]"]
+
+The combined extra does not need its own manually maintained copy of each
+referenced extra's dependencies, which can otherwise fall out of sync after
+a few years of maintenance and bug fixes:
+
+.. code-block:: toml
+
+    gui = ["PyQt5"]
+    cli = [
+      "rich>=14.2",   # version range is added after last "all" extra update
+      "textual",      # dependency newly added since last "all" extra update
+      "click",
+    ]
+    all = ["PyQt5", "rich", "click"]
+
+Most package managers now support this kind of extra, including
+:ref:`pip`, :ref:`uv`, :ref:`poetry`, :ref:`hatch`, :ref:`pdm` and :ref:`pipenv`.
 
 .. _requires-python:
 .. _python_requires:
@@ -322,11 +318,45 @@ You can also specify the format explicitly, like this:
    readme = {file = "README.txt", content-type = "text/x-rst"}
 
 
-``license``
------------
+.. _license-and-license-files:
 
-This is a valid :term:`SPDX license expression <License Expression>` consisting
-of one or more :term:`license identifiers <License Identifier>`.
+``license`` and ``license-files``
+---------------------------------
+
+As per :pep:`639`, licenses should be declared with two fields:
+
+- ``license`` is an :term:`SPDX license expression <License Expression>`
+  consisting of one or more :term:`license identifiers <License Identifier>`.
+- ``license-files`` is a list of license file glob patterns.
+
+A previous PEP had specified ``license`` to be a table with a ``file`` or a
+``text`` key, this format is now deprecated. Most :term:`build backends<build
+backend>` now support the new format as shown in the following table.
+
+.. list-table:: build backend versions that introduced :pep:`639` support
+   :header-rows: 1
+
+   * - hatchling
+     - setuptools
+     - flit-core [#flit-core-pep639]_
+     - pdm-backend
+     - poetry-core
+     - uv-build
+   * - 1.27.0
+     - 77.0.3
+     - 3.12
+     - 2.4.0
+     - 2.2.0
+     - 0.7.19
+
+
+.. _license:
+
+``license``
+'''''''''''
+
+The new format for ``license`` is a valid :term:`SPDX license expression <License Expression>`
+consisting of one or more :term:`license identifiers <License Identifier>`.
 The full license list is available at the
 `SPDX license list page <spdxlicenselist_>`_. The supported list version is
 3.17 or any later compatible one.
@@ -338,14 +368,20 @@ The full license list is available at the
     # or
     license = "MIT AND (Apache-2.0 OR BSD-2-Clause)"
 
+.. note:: If you get a build error that ``license`` should be a dict/table,
+   your build backend doesn't yet support the new format. See the
+   `above section <license-and-license-files_>`_ for more context.
+   The now deprecated format is `described in PEP 621 <https://peps.python.org/pep-0621/#license>`__.
+
 As a general rule, it is a good idea to use a standard, well-known
 license, both to avoid confusion and because some organizations avoid software
 whose license is unapproved.
 
-If your project is licensed with a license that doesn't have an existing SPDX
-identifier, you can create a custom one in format ``LicenseRef-[idstring]``.
-The custom identifiers must follow the SPDX specification,
-`clause 10.1 <spdxcustomids_>`_ of the version 2.2 or any later compatible one.
+If your :term:`Distribution Archive` is licensed with a license that doesn't
+have an existing SPDX identifier, you can create a custom one in format
+``LicenseRef-[idstring]``. The custom identifiers must follow the SPDX
+specification, `clause 10.1 <spdxcustomids_>`_ of the version 2.2 or any later
+compatible one.
 
 .. code-block:: toml
 
@@ -353,8 +389,10 @@ The custom identifiers must follow the SPDX specification,
     license = "LicenseRef-My-Custom-License"
 
 
+.. _license-files:
+
 ``license-files``
------------------
+'''''''''''''''''
 
 This is a list of license files and files containing other legal
 information you want to distribute with your package.
@@ -402,6 +440,7 @@ A list of PyPI classifiers that apply to your project. Check the
 
 .. code-block:: toml
 
+    [project]
     classifiers = [
       # How mature is this project? Common values are
       #   3 - Alpha
@@ -543,6 +582,7 @@ A full example
      "rich",
      "click",
    ]
+   all = ["spam-eggs[gui, cli]"]
 
    [project.urls]
    Homepage = "https://example.com"
@@ -567,6 +607,9 @@ A full example
    like ``requires-python = "<= 3.10"`` here. `This blog post <requires-python-blog-post_>`_
    contains some information regarding possible problems.
 
+.. [#flit-core-pep639] flit-core `does not yet <flit-issue-735_>`_ support WITH in SPDX license expressions.
+
+.. _flit-issue-735: https://github.com/pypa/flit/issues/735
 .. _gfm: https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax
 .. _setuptools: https://setuptools.pypa.io
 .. _poetry: https://python-poetry.org

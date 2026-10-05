@@ -14,8 +14,6 @@
 The ``pyproject.toml`` file acts as a configuration file for packaging-related
 tools (as well as other tools).
 
-.. note:: This specification was originally defined in :pep:`518` and :pep:`621`.
-
 The ``pyproject.toml`` file is written in `TOML <https://toml.io>`_. Three
 tables are currently specified, namely
 :ref:`[build-system] <pyproject-build-system-table>`,
@@ -61,6 +59,10 @@ table then the default values as specified above should be used.
 If the table is specified but is missing required fields then the tool
 should consider it an error.
 
+Tools may choose to present an error to the user if the file exists,
+``[build-system]`` table is missing, and there is no clear indication
+that the project should be built (e.g., no setup.py/setup.cfg or other
+build configuration files, and no ``[project]`` table).
 
 To provide a type-specific representation of the resulting data from
 the TOML file for illustrative purposes only, the following
@@ -112,6 +114,13 @@ by the metadata). Dynamic metadata is listed via the ``dynamic`` key
 (defined later in this specification) and represents metadata that a
 tool will later provide.
 
+A key whose value is a list or a table of arbitrary entries MAY be
+specified statically *and* listed in ``dynamic`` at the same time. In
+that case the entries given statically are fixed and a build back-end
+MAY only *append* further entries to them; the back-end MUST NOT
+remove, reorder, or modify any statically-specified entries. See the
+:ref:`dynamic <pyproject-toml-dynamic>` key for details.
+
 The lack of a ``[project]`` table implicitly means the :term:`build backend <Build Backend>`
 will dynamically provide all keys.
 
@@ -136,6 +145,8 @@ The complete list of keys allowed in the ``[project]`` table are:
 - ``dynamic``
 - ``entry-points``
 - ``gui-scripts``
+- ``import-names``
+- ``import-namespaces``
 - ``keywords``
 - ``license``
 - ``license-files``
@@ -149,6 +160,8 @@ The complete list of keys allowed in the ``[project]`` table are:
 - ``version``
 
 
+.. _pyproject-toml-name:
+
 ``name``
 --------
 
@@ -160,6 +173,9 @@ The name of the project.
 
 Tools SHOULD :ref:`normalize <name-normalization>` this name, as soon
 as it is read for internal consistency.
+
+
+.. _pyproject-toml-version:
 
 ``version``
 -----------
@@ -174,6 +190,8 @@ The version of the project, as defined in the
 Users SHOULD prefer to specify already-normalized versions.
 
 
+.. _pyproject-toml-description:
+
 ``description``
 ---------------
 
@@ -184,6 +202,8 @@ Users SHOULD prefer to specify already-normalized versions.
 The summary description of the project in one line. Tools MAY error
 if this includes multiple lines.
 
+
+.. _pyproject-toml-readme:
 
 ``readme``
 ----------
@@ -202,7 +222,7 @@ If the file path ends in a case-insensitive ``.md`` suffix, then tools
 MUST assume the content-type is ``text/markdown``. If the file path
 ends in a case-insensitive ``.rst``, then tools MUST assume the
 content-type is ``text/x-rst``. If a tool recognizes more extensions
-than this PEP, they MAY infer the content-type for the user without
+than this specification, it MAY infer the content-type for the user without
 specifying this key as ``dynamic``. For all unrecognized suffixes
 when a content-type is not provided, tools MUST raise an error.
 
@@ -224,6 +244,8 @@ as supported by the :ref:`core metadata <core-metadata>`. Otherwise
 tools MUST raise an error for unsupported content-types.
 
 
+.. _pyproject-toml-requires-python:
+
 ``requires-python``
 -------------------
 
@@ -234,6 +256,8 @@ tools MUST raise an error for unsupported content-types.
 The Python version requirements of the project.
 
 
+.. _pyproject-toml-license:
+
 ``license``
 -----------
 
@@ -241,18 +265,41 @@ The Python version requirements of the project.
 - Corresponding :ref:`core metadata <core-metadata>` field:
   :ref:`License-Expression <core-metadata-license-expression>`
 
-Text string that is a valid SPDX license expression as defined in :pep:`639`.
+Text string that is a valid SPDX
+:term:`license expression <License Expression>`,
+as specified in :doc:`/specifications/license-expression`.
 Tools SHOULD validate and perform case normalization of the expression.
 
-The table subkeys of the ``license`` key are deprecated.
+This key should **only** be specified if the license expression for any
+and all distribution files created by a build backend using the
+:file:`pyproject.toml` is the same as the one specified. If the license
+expression will differ then it should either be specified as dynamic or
+not set at all.
 
+Legacy specification
+''''''''''''''''''''
+
+- TOML_ type: table
+- Corresponding :ref:`core metadata <core-metadata>` field:
+  :ref:`License <core-metadata-license>`
+
+The table may have one of two keys. The ``file`` key has a string
+value that is a file path relative to :file:`pyproject.toml` to the file
+which contains the license for the project. Tools MUST assume the
+file's encoding is UTF-8. The ``text`` key has a string value which is
+the license of the project.  These keys are mutually exclusive, so a
+tool MUST raise an error if the metadata specifies both keys.
+
+The table subkeys were deprecated by :pep:`639` in favor of the string value.
+
+.. _pyproject-toml-license-files:
 
 ``license-files``
 -----------------
 
 - TOML_ type: array of strings
 - Corresponding :ref:`core metadata <core-metadata>` field:
-  :ref:`License-Expression <core-metadata-license-file>`
+  :ref:`License-File <core-metadata-license-file>`
 
 An array specifying paths in the project source tree relative to the project
 root directory (i.e. directory containing :file:`pyproject.toml` or legacy project
@@ -260,43 +307,20 @@ configuration files, e.g. :file:`setup.py`, :file:`setup.cfg`, etc.)
 to file(s) containing licenses and other legal notices to be
 distributed with the package.
 
-The strings MUST contain valid glob patterns, as specified below:
+The strings MUST contain valid glob patterns, as specified in
+:doc:`/specifications/glob-patterns`.
 
-- Alphanumeric characters, underscores (``_``), hyphens (``-``) and dots (``.``)
-  MUST be matched verbatim.
-
-- Special glob characters: ``*``, ``?``, ``**`` and character ranges: ``[]``
-  containing only the verbatim matched characters MUST be supported.
-  Within ``[...]``, the hyphen indicates a locale-agnostic range (e.g. ``a-z``,
-  order based on Unicode code points).
-  Hyphens at the start or end are matched literally.
-
-- Path delimiters MUST be the forward slash character (``/``).
-  Patterns are relative to the directory containing :file:`pyproject.toml`,
-  therefore the leading slash character MUST NOT be used.
-
-- Parent directory indicators (``..``) MUST NOT be used.
-
-Any characters or character sequences not covered by this specification are
-invalid. Projects MUST NOT use such values.
-Tools consuming this field SHOULD reject invalid values with an error.
+Patterns are relative to the directory containing :file:`pyproject.toml`,
 
 Tools MUST assume that license file content is valid UTF-8 encoded text,
 and SHOULD validate this and raise an error if it is not.
 
-Literal paths (e.g. :file:`LICENSE`) are valid globs which means they
-can also be defined.
-
 Build tools:
 
-- MUST treat each value as a glob pattern, and MUST raise an error if the
-  pattern contains invalid glob syntax.
 - MUST include all files matched by a listed pattern in all distribution
   archives.
 - MUST list each matched file path under a License-File field in the
   Core Metadata.
-- MUST raise an error if any individual user-specified pattern does not match
-  at least one file.
 
 If the ``license-files`` key is present and
 is set to a value of an empty array, then tools MUST NOT include any
@@ -305,6 +329,9 @@ If the ``license-files`` key is not defined, tools can decide how to handle
 license files. For example they can choose not to include any files or use
 their own logic to discover the appropriate files in the distribution.
 
+
+.. _pyproject-toml-authors:
+.. _pyproject-toml-maintainers:
 
 ``authors``/``maintainers``
 ---------------------------
@@ -348,6 +375,8 @@ follows:
 4. Multiple values should be separated by commas.
 
 
+.. _pyproject-toml-keywords:
+
 ``keywords``
 ------------
 
@@ -357,6 +386,8 @@ follows:
 
 The keywords for the project.
 
+
+.. _pyproject-toml-classifiers:
 
 ``classifiers``
 ---------------
@@ -374,6 +405,8 @@ Build tools MAY raise an error if both the ``license`` string value
 classifiers are used.
 
 
+.. _pyproject-toml-urls:
+
 ``urls``
 --------
 
@@ -385,6 +418,10 @@ A table of URLs where the key is the URL label and the value is the
 URL itself. See :ref:`well-known-project-urls` for normalization rules
 and well-known rules when processing metadata for presentation.
 
+
+.. _pyproject-toml-scripts:
+.. _pyproject-toml-gui-scripts:
+.. _pyproject-toml-entry-points:
 
 Entry points
 ------------
@@ -416,34 +453,156 @@ be ambiguous in the face of ``[project.scripts]`` and
 ``[project.gui-scripts]``, respectively.
 
 
-``dependencies``/``optional-dependencies``
-------------------------------------------
+.. _pyproject-toml-dependencies:
 
-- TOML_ type: Array of :pep:`508` strings (``dependencies``), and a
-  table with values of arrays of :pep:`508` strings
-  (``optional-dependencies``)
+``dependencies``
+----------------
+
+- TOML_ type: Array of :ref:`dependency specifier <dependency-specifiers>`
+  strings (``dependencies``)
 - Corresponding :ref:`core metadata <core-metadata>` field:
+  :ref:`Requires-Dist <core-metadata-requires-dist>`
+
+``dependencies`` lists the expected dependencies of the project as an
+array of strings.
+
+Each string represents a dependency of the project and MUST be
+formatted as a valid :ref:`dependency specifier <dependency-specifiers>`.
+
+Each string maps directly to a
+:ref:`Requires-Dist <core-metadata-requires-dist>` entry.
+
+Dependencies listed in this array are always considered
+for installation, but may still contain environment markers that cause them
+to be skipped in some environments.
+
+
+.. _pyproject-toml-optional-dependencies:
+
+``optional-dependencies``
+-------------------------
+
+- TOML_ type: table with string keys mapping to arrays of
+  :ref:`dependency specifier <dependency-specifiers>` strings (``optional-dependencies``)
+- Corresponding :ref:`core metadata <core-metadata>` fields:
   :ref:`Requires-Dist <core-metadata-requires-dist>` and
   :ref:`Provides-Extra <core-metadata-provides-extra>`
 
-The (optional) dependencies of the project.
+``optional-dependencies`` is a table where each key specifies
+an extra and whose value is an array of strings using the same format as the
+``dependencies`` array (the strings in the
+arrays must be valid :ref:`dependency specifiers <dependency-specifiers>`).
 
-For ``dependencies``, it is a key whose value is an array of strings.
-Each string represents a dependency of the project and MUST be
-formatted as a valid :pep:`508` string. Each string maps directly to
-a :ref:`Requires-Dist <core-metadata-requires-dist>` entry.
-
-For ``optional-dependencies``, it is a table where each key specifies
-an extra and whose value is an array of strings. The strings of the
-arrays must be valid :pep:`508` strings. The keys MUST be valid values
+The keys MUST be valid values
 for :ref:`Provides-Extra <core-metadata-provides-extra>`. Each value
 in the array thus becomes a corresponding
 :ref:`Requires-Dist <core-metadata-requires-dist>` entry for the
 matching :ref:`Provides-Extra <core-metadata-provides-extra>`
 metadata.
 
+The optionality of these dependencies is recorded by modifying the environment
+marker clause on the related ``Requires-Dist`` entries to check the extra name.
+Optional dependencies are thus only considered for installation if installation
+if the associated extra name is requested.
+
+Dependency specifiers in an extra may self-reference other extras from the
+current project (e.g. ``all = ["your-project-name[gui, cli]"]``). See
+:ref:`self-referential extras <self-referential-extras>` for an example.
+Most package managers now support this kind of extra, including
+:ref:`pip`, :ref:`uv`, :ref:`poetry`, :ref:`hatch`, :ref:`pdm` and :ref:`pipenv`.
+
+.. _pyproject-toml-import-names:
+
+``import-names``
+----------------
+
+- TOML_ type: array of strings
+- Corresponding :ref:`core metadata <core-metadata>` field:
+  :ref:`Import-Name <core-metadata-import-name>`
+
+An array of strings specifying the import names that the project exclusively
+provides when installed. Each string MUST be a valid Python identifier or can
+be empty. An import name MAY be followed by a semicolon and the term "private"
+(e.g. ``"; private"``) with any amount of whitespace surrounding the semicolon.
+
+Projects SHOULD list all the shortest import names that are exclusively provided
+by the project. If any of the shortest names are dotted names, all intervening
+names from that name to the top-level name should also be listed appropriately
+in ``import-names`` and/or ``import-namespaces``. For instance, a project which
+is a single package named spam with multiple submodules would only list
+``project.import-names = ["spam"]``. A project that lists ``spam.bacon.eggs``
+would also need to account for ``spam`` and ``spam.bacon`` appropriately in
+``import-names`` and ``import-namespaces``. Listing all names acts as a check
+that the intent of the import names is as expected. As well, projects SHOULD
+list all import names, public or private, using the ``; private`` modifier as
+appropriate.
+
+If a project lists the same name in both ``import-names`` and
+``import-namespaces``, then tools MUST raise an error due to ambiguity.
+
+Projects MAY set ``import-names`` to an empty array to represent a project with
+no import names (i.e. there are no Python modules of any kind in the
+distribution file).
+
+Build back-ends MAY support dynamically calculating the value if the user
+declares the key in ``project.dynamic``.
+
+Examples:
+
+.. code-block:: toml
+
+   [project]
+   name = "pillow"
+   import-names = ["PIL"]
+
+.. code-block:: toml
+
+   [project]
+   name = "myproject"
+   import-names = ["mypackage", "_private_module ; private"]
 
 
+.. _pyproject-toml-import-namespaces:
+
+``import-namespaces``
+---------------------
+
+- TOML_ type: array of strings
+- Corresponding :ref:`core metadata <core-metadata>` field:
+  :ref:`Import-Namespace <core-metadata-import-namespace>`
+
+An array of strings specifying the import names that the project provides when
+installed, but not exclusively. Each string MUST be a valid Python identifier.
+An import name MAY be followed by a semicolon and the term "private" (e.g.
+``"; private"``) with any amount of whitespace surrounding the semicolon. Note
+that unlike ``import-names``, ``import-namespaces`` CANNOT be an empty array.
+
+Projects SHOULD list all the shortest import names that are exclusively provided
+by the project. If any of the shortest names are dotted names, all intervening
+names from that name to the top-level name should also be listed appropriately
+in ``import-names`` and/or ``import-namespaces``.
+
+This field is used for namespace packages where multiple projects can contribute
+to the same import namespace. Projects all listing the same import name in
+``import-namespaces`` can be installed together without shadowing each other.
+
+If a project lists the same name in both ``import-names`` and
+``import-namespaces``, then tools MUST raise an error due to ambiguity.
+
+Build back-ends MAY support dynamically calculating the value if the user
+declares the key in ``project.dynamic``.
+
+Example:
+
+.. code-block:: toml
+
+   [project]
+   name = "zope-interface"
+   import-namespaces = ["zope"]
+   import-names = ["zope.interface"]
+
+
+.. _pyproject-toml-dynamic:
 .. _declaring-project-metadata-dynamic:
 
 ``dynamic``
@@ -472,8 +631,9 @@ provided via tooling later on.
   field as "Optional", the metadata MAY list it in ``dynamic`` if the
   expectation is a build back-end will provide the data for the key
   later.
-- Build back-ends MUST raise an error if the metadata specifies a
-  key statically as well as being listed in ``dynamic``.
+- Build back-ends MUST raise an error if the metadata specifies a key
+  statically as well as being listed in ``dynamic``, *unless* the key
+  represents a list or arbitrary table that can be extended, listed below.
 - If the metadata does not list a key in ``dynamic``, then a build
   back-end CANNOT fill in the requisite metadata on behalf of the user
   (i.e. ``dynamic`` is the only way to allow a tool to fill in
@@ -483,6 +643,35 @@ provided via tooling later on.
   the data for it (omitting the data, if determined to be the accurate
   value, is acceptable).
 
+A key whose value is a list or a table of arbitrary entries MAY be
+specified statically and listed in ``dynamic`` simultaneously. The
+keys fitting that description are:
+
+- ``authors``
+- ``classifiers``
+- ``dependencies``
+- ``entry-points``
+- ``gui-scripts``
+- ``import-names``
+- ``import-namespaces``
+- ``keywords``
+- ``license-files``
+- ``maintainers``
+- ``optional-dependencies``
+- ``scripts``
+- ``urls``
+
+When such a key is specified both statically and listed in
+``dynamic``:
+
+- A build back-end MAY only *append* entries to the value; it MUST NOT
+  remove, reorder, or modify any statically-specified entries. For
+  tables (such as ``optional-dependencies`` or ``entry-points``) this
+  means a back-end MAY add new keys and MAY append to the values of
+  existing keys (in the case of a list), but MUST NOT change or remove the
+  entries given statically.
+- A build back-end SHOULD raise an error if a key is listed in
+  ``dynamic`` and it does not support extending that key.
 
 
 .. _pyproject-tool-table:
@@ -517,5 +706,20 @@ History
 - December 2024: The ``license`` key was redefined, the ``license-files`` key was
   added and ``License::`` classifiers were deprecated through :pep:`639`.
 
+- September 2025: Clarity that the ``license`` key applies to all distribution
+  files generated from the :file:`pyproject.toml` file.
+
+- October 2025: The ``import-names`` and ``import-namespaces`` keys were added
+  through :pep:`794`.
+
+- January 2026: Replaced outdated direct reference to :pep:`508` with a
+  reference to :ref:`dependency-specifiers`.
+
+- May 2026: Allowed list and table keys to be specified statically as well
+  as listed in ``dynamic``, with build back-ends only able to append
+  entries, through :pep:`808`.
+
+- August 2026: Document self-referential extra as a supported feature by many
+  modern package managers of Python.
 
 .. _TOML: https://toml.io
